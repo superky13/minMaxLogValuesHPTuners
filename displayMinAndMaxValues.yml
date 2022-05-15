@@ -1,0 +1,84 @@
+---
+- name: transform log file data and retrieve min and max values for each channel param
+  hosts: localhost
+  vars:
+  ## logFile needs to be explicitly defined below or dynamically passed as an extra variable !!
+  - logFile: ''
+  - logFileCopy: 'logFileCopy.csv'
+  - transLogFileJson: 'transformedData.json'
+  - superfluousContent: ['^\[Channel Data\]', '^s,', '^\s*$']
+  - cleaveparams: ['FuelSystem1Status']
+  - transformTemplate: 'transformDataLooper.j2'
+  - minMaxFile: "minMaxLogValues-{{ ansible_date_time.date }}"
+  - looperVar: "{{ lookup('file', logFile) }}"
+  tasks:
+  - name: make a copy of the log file to carve up
+    copy: 
+      src: "{{ logFile }}"
+      dest: "{{ logFileCopy }}"
+
+  - name: set var for logfileinspect log file
+    set_fact:
+      logfileinspect: "{{ lookup('file', logFileCopy) }}"
+
+  - block:
+    - name: remove superfluous content in exported csv from HP Tuner log file
+      shell: "sed -i -e 1,15d {{ logFileCopy }}"
+    when: '"Channel Information" in logfileinspect'
+
+  - name: remove superflous headers and units in the log file
+    lineinfile:
+      path: "{{ logFileCopy }}"
+      regexp: '{{ item }}'
+      state: absent
+    loop: "{{ superfluousContent }}"
+
+  - name: collect param names and remove chars that cause json_query to choke
+    shell: "head -n 1 {{ logFileCopy }} | tr ',' '\n' | sed -e 's/(SAE)//' | tr -d ' ' | tr -d '%' | tr -d '#'"
+    register: paramkeynames
+
+  - name: create a json array of dictionaires from transformed csv
+    template:
+      src: "{{ transformTemplate }}"
+      dest: "{{ transLogFileJson }}"
+    run_once: true
+
+  - name: remove lines from {{ transLogFileJson }} that don't contain int values or have a value of null
+    lineinfile:
+      state: absent
+      path: "{{ transLogFileJson }}"
+      regexp: "{{ item }}"
+    loop: "{{ cleaveparams }}"
+
+  - name: prepopulate {{ minMaxFile }} with appropriate keys
+    copy:
+      content: "*** MAX VALUES ***\n\n*** MIN VALUES ***\n\n"
+      dest: "{{ minMaxFile }}"
+
+  - name: set {{ transLogFileJson }} as a variable to be used by json_query
+    set_fact:
+      transLogFileJsonLookup: "{{ lookup('file', transLogFileJson) }}"
+
+  - name: print max values to {{ minMaxFile }}
+    lineinfile:
+      path: "{{ minMaxFile }}"
+      insertafter: 'MAX VALUES'
+      line: "{{ item }}: {{ transLogFileJsonLookup | json_query(querystr) }}"
+    loop: "{{ paramkeynames.stdout_lines }}"
+    loop_control:
+      label: ''
+    vars:
+      querystr: 'max_by(transformedCSV, &"{{ item }}").{{ item }}'
+    when: (item != None) and (item != 'FuelSystem1Status')
+
+  - name: print min values to {{ minMaxFile }}
+    lineinfile:
+      path: "{{ minMaxFile }}"
+      insertafter: 'MIN VALUES'
+      line: "{{ item }}: {{ transLogFileJsonLookup | json_query(querystr) }}"
+    loop: "{{ paramkeynames.stdout_lines }}"
+    loop_control:
+      label: ''
+    vars:
+      querystr: 'min_by(transformedCSV, &"{{ item }}").{{ item }}'
+    when: (item != None) and (item != 'FuelSystem1Status')

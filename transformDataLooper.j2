@@ -1,0 +1,14 @@
+{
+  "transformedCSV": [
+  {% for item in looperVar.split("\n") %}
+  {%  if loop.index != 1 %}
+  {%    set list = item.split(",") %}
+  {
+  {%    for n in range(paramkeynames.stdout_lines | length) %}
+  "{{ paramkeynames.stdout_lines[n] }}": {{ list[n]|trim() }},
+  {%    endfor %} 
+  },
+  {%  endif %}
+  {% endfor %} 
+  ]
+}
