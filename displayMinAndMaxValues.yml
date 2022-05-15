@@ -10,7 +10,7 @@
   - cleaveparams: ['FuelSystem1Status']
   - transformTemplate: 'transformDataLooper.j2'
   - minMaxFile: "minMaxLogValues-{{ ansible_date_time.date }}"
-  - looperVar: "{{ lookup('file', logFile) }}"
+  - looperVar: "{{ lookup('file', logFileCopy) }}"
   tasks:
   - name: make a copy of the log file to carve up
     copy: 
