@@ -25,7 +25,7 @@ To run the code:
 
 git clone https://github.com/superky13/minMaxLogValuesHPTuners.git
 cd minMaxLogValuesHPTuners
-ansible-playbook displayMinAndMaxValues.yml --extra-vars "logFile=/root/csvHPTuners/ky13_small_log.csv"
+ansible-playbook displayMinAndMaxValues.yml --extra-vars "logFile=/path/to/your/log.csv"
 cat or open minMaxLogValuesHPTuners/minMaxLogValues-$DATE
 ```
 Caveat: the min values are not recorded if they are also the max values
