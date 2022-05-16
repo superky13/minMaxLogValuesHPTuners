@@ -37,11 +37,6 @@
     shell: "head -n 1 {{ logFileCopy }} | tr ',' '\n' | sed -e 's/(SAE)//' | tr -d ' ' | tr -d '%' | tr -d '#' | tr -d '/' | sed -e 's/([^()]*)//g'"
     register: paramkeynames
 
-  - name: print paramkeynames
-    debug:
-      msg: "{{ item }}"
-    loop: "{{ paramkeynames.stdout_lines }}"
-
   - name: create a json array of dictionaires from transformed csv
     template:
       src: "{{ transformTemplate }}"
