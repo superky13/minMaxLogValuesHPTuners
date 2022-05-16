@@ -7,7 +7,7 @@
   - logFileCopy: 'logFileCopy.csv'
   - transLogFileJson: 'transformedData.json'
   - superfluousContent: ['^\[Channel Data\]', '^s,', '^\s*$']
-  - cleaveparams: ['FuelSystem1Status']
+  - cleaveparams: ['FuelSystem1Status', 'BrakePedal', 'DFCOActive', 'ETCReducedPower', 'MCPThrottleLimitFault', 'MCPTPSLimit', 'FuelCutType', 'FuelCutTorqueManagementType', 'SparkTorqueManagementType', 'AirCalcMode', 'ETCTorqueManagementType', 'PowerEnrichment', 'Fan2', 'Fan1', 'FuelTrimLearn', 'Air-FuelRatioCommanded', 'ClosedLoopActive', 'MassAirflowSensorState']
   - transformTemplate: 'transformDataLooper.j2'
   - minMaxFile: "minMaxLogValues-{{ ansible_date_time.date }}"
   - looperVar: "{{ lookup('file', logFileCopy) }}"
@@ -34,8 +34,13 @@
     loop: "{{ superfluousContent }}"
 
   - name: collect param names and remove chars that cause json_query to choke
-    shell: "head -n 1 {{ logFileCopy }} | tr ',' '\n' | sed -e 's/(SAE)//' | tr -d ' ' | tr -d '%' | tr -d '#'"
+    shell: "head -n 1 {{ logFileCopy }} | tr ',' '\n' | sed -e 's/(SAE)//' | tr -d ' ' | tr -d '%' | tr -d '#' | tr -d '/' | sed -e 's/([^()]*)//g'"
     register: paramkeynames
+
+  - name: print paramkeynames
+    debug:
+      msg: "{{ item }}"
+    loop: "{{ paramkeynames.stdout_lines }}"
 
   - name: create a json array of dictionaires from transformed csv
     template:
@@ -69,7 +74,7 @@
       label: "{{ item }}"
     vars:
       querystr: 'max_by(transformedCSV, &"{{ item }}").{{ item }}'
-    when: (item != None) and (item != 'FuelSystem1Status')
+    when: (item != None) and (item not in cleaveparams)
 
   - name: print min values to {{ minMaxFile }}
     lineinfile:
@@ -81,4 +86,4 @@
       label: "{{ item }}"
     vars:
       querystr: 'min_by(transformedCSV, &"{{ item }}").{{ item }}'
-    when: (item != None) and (item != 'FuelSystem1Status')
+    when: (item != None) and (item not in cleaveparams)
